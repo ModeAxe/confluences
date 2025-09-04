@@ -136,3 +136,7 @@ dist
 .pnp.*
 
 /output/
+
+# Python logs
+python/logs/
+*.log
