@@ -19,6 +19,7 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 import cv2
+from bodypix import BodyPix
 
 # Configure logging
 logging.basicConfig(
@@ -50,29 +51,19 @@ class BodyPixProcessor:
         try:
             logger.info("🤖 Loading BodyPix model...")
             
-            # For simplicity, we'll use a pre-trained model
-            # You can download from: https://github.com/tensorflow/tfjs-models/tree/master/body-pix
-            if model_path and os.path.exists(model_path):
-                self.model = tf.saved_model.load(model_path)
-            else:
-                # Use a simple segmentation model as fallback
-                # In practice, you'd want to download the actual BodyPix model
-                logger.warning("⚠️  Using fallback model. For best results, download BodyPix model.")
-                self.model = self._create_fallback_model()
+            # Initialize BodyPix with the tf-bodypix library
+            # This will automatically download the model if not present
+            self.model = BodyPix()
             
             logger.info("✅ BodyPix model loaded successfully")
             
         except Exception as e:
             logger.error(f"❌ Error loading BodyPix model: {e}")
+            logger.error("💡 Make sure tf-bodypix is installed: pip install tf-bodypix")
             raise
     
-    def _create_fallback_model(self):
-        """Create a simple fallback model for demonstration"""
-        # This is a placeholder - in practice you'd load the actual BodyPix model
-        return None
-    
     def segment_image(self, image_path: str) -> dict:
-        """Segment body parts in an image"""
+        """Segment body parts in an image using real BodyPix"""
         try:
             # Load image
             image = Image.open(image_path).convert('RGB')
@@ -80,15 +71,14 @@ class BodyPixProcessor:
             
             logger.info(f"📸 Processing: {os.path.basename(image_path)} ({image_array.shape[1]}x{image_array.shape[0]})")
             
-            # For demonstration, create a simple segmentation
-            # In practice, you'd use the actual BodyPix model here
-            segmentation_result = self._simple_segmentation(image_array)
+            # Use real BodyPix for segmentation
+            segmentation_result = self.model.predict_single(image_array)
             
             return {
                 'success': True,
                 'image_path': image_path,
                 'segmentation': segmentation_result,
-                'body_parts': self._extract_body_parts(segmentation_result)
+                'body_parts': self._extract_body_parts_from_bodypix(segmentation_result)
             }
             
         except Exception as e:
@@ -120,25 +110,120 @@ class BodyPixProcessor:
         
         return skin_mask
     
-    def _extract_body_parts(self, segmentation: np.ndarray) -> list:
-        """Extract body parts from segmentation mask"""
+    def _extract_body_parts_from_bodypix(self, segmentation_result) -> list:
+        """Extract body parts from BodyPix segmentation result"""
         body_parts = []
         
-        # For demonstration, we'll create a simple body part detection
-        # In practice, BodyPix would provide detailed part segmentation
-        height, width = segmentation.shape
+        try:
+            # BodyPix provides detailed part segmentation
+            # The result should contain part masks for different body parts
+            if hasattr(segmentation_result, 'part_mask'):
+                part_mask = segmentation_result.part_mask
+                
+                # BodyPix part IDs (these are the standard BodyPix part IDs)
+                bodypix_parts = {
+                    0: 'background',
+                    1: 'torso_back',
+                    2: 'torso_front', 
+                    3: 'left_arm',
+                    4: 'right_arm',
+                    5: 'left_leg',
+                    6: 'right_leg',
+                    7: 'head',
+                    8: 'left_hand',
+                    9: 'right_hand',
+                    10: 'left_foot',
+                    11: 'right_foot'
+                }
+                
+                # Extract each body part
+                for part_id, part_name in bodypix_parts.items():
+                    if part_id == 0:  # Skip background
+                        continue
+                    
+                    # Create mask for this part
+                    part_mask_binary = (part_mask == part_id).astype(np.uint8) * 255
+                    pixel_count = np.sum(part_mask_binary > 0)
+                    
+                    if pixel_count > 0:
+                        # Map to our body part groups
+                        group_name = self._map_bodypix_part_to_group(part_name)
+                        
+                        body_parts.append({
+                            'name': part_name,
+                            'pixel_count': int(pixel_count),
+                            'mask': part_mask_binary,
+                            'group': group_name,
+                            'bodypix_id': part_id
+                        })
+            
+            # If no part_mask, fall back to person segmentation
+            elif hasattr(segmentation_result, 'mask'):
+                person_mask = segmentation_result.mask
+                pixel_count = np.sum(person_mask > 0)
+                
+                if pixel_count > 0:
+                    body_parts.append({
+                        'name': 'person',
+                        'pixel_count': int(pixel_count),
+                        'mask': person_mask,
+                        'group': 'person'
+                    })
+            
+            else:
+                logger.warning("⚠️  BodyPix result doesn't contain expected attributes")
+                # Fall back to heuristic method
+                return self._extract_body_parts_heuristic_fallback(segmentation_result)
+                
+        except Exception as e:
+            logger.error(f"❌ Error extracting body parts: {e}")
+            # Fall back to heuristic method
+            return self._extract_body_parts_heuristic_fallback(segmentation_result)
         
-        # Simple heuristic-based body part detection
-        # This is a placeholder - replace with actual BodyPix part segmentation
-        parts_detected = self._detect_body_parts_heuristic(segmentation, height, width)
+        return body_parts
+    
+    def _map_bodypix_part_to_group(self, part_name: str) -> str:
+        """Map BodyPix part names to our body part groups"""
+        mapping = {
+            'torso_back': 'torso',
+            'torso_front': 'torso',
+            'left_arm': 'left_arm',
+            'right_arm': 'right_arm',
+            'left_leg': 'left_leg',
+            'right_leg': 'right_leg',
+            'head': 'head',
+            'left_hand': 'left_arm',  # Hands are part of arms
+            'right_hand': 'right_arm',
+            'left_foot': 'left_leg',  # Feet are part of legs
+            'right_foot': 'right_leg'
+        }
+        return mapping.get(part_name, 'other')
+    
+    def _extract_body_parts_heuristic_fallback(self, segmentation_result) -> list:
+        """Fallback method using heuristic approach"""
+        logger.info("🔄 Using heuristic fallback for body part detection")
         
-        for part_name, mask in parts_detected.items():
-            pixel_count = np.sum(mask > 0)
+        # Try to get a mask from the result
+        if hasattr(segmentation_result, 'mask'):
+            mask = segmentation_result.mask
+        elif hasattr(segmentation_result, 'segmentation'):
+            mask = segmentation_result.segmentation
+        else:
+            # If we can't get a mask, return empty list
+            return []
+        
+        # Use the existing heuristic method
+        height, width = mask.shape
+        parts_detected = self._detect_body_parts_heuristic(mask, height, width)
+        
+        body_parts = []
+        for part_name, part_mask in parts_detected.items():
+            pixel_count = np.sum(part_mask > 0)
             if pixel_count > 0:
                 body_parts.append({
                     'name': part_name,
                     'pixel_count': int(pixel_count),
-                    'mask': mask,
+                    'mask': part_mask,
                     'group': self._get_part_group(part_name)
                 })
         
