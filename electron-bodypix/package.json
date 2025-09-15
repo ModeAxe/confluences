@@ -1,0 +1,24 @@
+{
+  "name": "bodypix-watcher",
+  "version": "1.0.0",
+  "description": "Simple Electron app that watches a folder and segments body parts using BodyPix",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev"
+  },
+  "keywords": ["electron", "bodypix", "segmentation", "tensorflow"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^27.0.0"
+  },
+  "dependencies": {
+    "@tensorflow/tfjs": "^4.15.0",
+    "@tensorflow/tfjs-node": "^4.15.0",
+    "@tensorflow-models/body-pix": "^2.2.1",
+    "chokidar": "^3.5.3",
+    "fs-extra": "^11.1.1",
+    "path": "^0.12.7"
+  }
+}
