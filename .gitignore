@@ -137,6 +137,8 @@ dist
 
 /output/
 
+/Confluences/output/
+/Confluences/captures/
 # Python logs
 python/logs/
 *.log

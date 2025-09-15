@@ -300,6 +300,7 @@ class BodyPixWatcher {
         console.log(`Transposing original image to match mask dimensions`);
         processedImage = tf.transpose(originalImage, [1, 0, 2]);
       }
+      //flip image vertically and horizontally
       processedImage = tf.reverse(processedImage, [0]);
       processedImage = tf.reverse(processedImage, [1]);
       

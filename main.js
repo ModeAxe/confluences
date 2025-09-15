@@ -1,8 +1,10 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const BackgroundSegmentationService = require('./backgroundSegmentation');
 
 let mainWindow;
+let segmentationService;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -27,11 +29,33 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+
+  // Start background segmentation service
+  startBackgroundSegmentation();
+}
+
+async function startBackgroundSegmentation() {
+  try {
+    segmentationService = new BackgroundSegmentationService();
+    await segmentationService.initialize();
+    
+    // Watch the captures folder for new images
+    const capturesDir = path.join(__dirname, 'Confluences', 'captures');
+    segmentationService.startWatching(capturesDir);
+    console.log('🎯 Background segmentation service started');
+  } catch (error) {
+    console.error('❌ Failed to start background segmentation service:', error);
+  }
 }
 
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
+  // Stop background service before quitting
+  if (segmentationService) {
+    segmentationService.stop();
+  }
+  
   if (process.platform !== 'darwin') {
     app.quit();
   }
@@ -45,7 +69,7 @@ app.on('activate', () => {
 
 // Ensure output directories exist
 function ensureOutputDirectories() {
-  const dirs = ['output/captures'];
+  const dirs = ['output/captures', 'Confluences/captures'];
   dirs.forEach(dir => {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
