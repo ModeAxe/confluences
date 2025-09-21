@@ -185,6 +185,69 @@ button:disabled {
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
 }
 
+/* Vertical TV optimizations */
+@media (orientation: portrait) {
+  .video-preview {
+    max-width: 85%;
+    max-height: 75%;
+  }
+  
+  .status-indicator {
+    font-size: 16px;
+    padding: 18px 26px;
+  }
+  
+  .person-status {
+    font-size: 18px;
+    padding: 10px 18px;
+  }
+  
+  .countdown-message {
+    font-size: 18px;
+    padding: 14px 20px;
+  }
+  
+  .thank-you-text {
+    font-size: 3.5rem;
+  }
+  
+  button {
+    padding: 14px 28px;
+    font-size: 18px;
+  }
+}
+
+/* Large displays (TVs) */
+@media (min-width: 1920px) {
+  .video-preview {
+    max-width: 80%;
+    max-height: 70%;
+  }
+  
+  .status-indicator {
+    font-size: 20px;
+    padding: 20px 30px;
+  }
+  
+  .person-status {
+    font-size: 22px;
+    padding: 12px 22px;
+  }
+  
+  .countdown-message {
+    font-size: 22px;
+    padding: 16px 24px;
+  }
+  
+  .thank-you-text {
+    font-size: 4rem;
+  }
+  
+  button {
+    padding: 16px 32px;
+    font-size: 20px;
+  }
+}
 
 
 @keyframes fadeIn {

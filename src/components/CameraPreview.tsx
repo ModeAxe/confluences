@@ -25,11 +25,14 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({ onCapture }) => {
 
   const startCamera = useCallback(async () => {
     try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(device => device.kind === 'videoinput');
+      console.log('Available cameras:', videoDevices);
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: 'user'
+          width: { ideal: 720 },
+          height: { ideal: 1280 },
+            deviceId: { exact: videoDevices[0].deviceId }
         }
       });
 

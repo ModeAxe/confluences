@@ -10,6 +10,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    fullscreen: true, // Start in fullscreen for TV display
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -28,6 +29,18 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+
+  // Add keyboard shortcuts
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    // F11 or Cmd+Ctrl+F to toggle fullscreen
+    if (input.key === 'F11' || (input.meta && input.control && input.key === 'f')) {
+      mainWindow.setFullScreen(!mainWindow.isFullScreen());
+    }
+    // Escape to exit fullscreen
+    if (input.key === 'Escape' && mainWindow.isFullScreen()) {
+      mainWindow.setFullScreen(false);
+    }
   });
 
   // Start background segmentation service
