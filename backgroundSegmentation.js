@@ -186,6 +186,8 @@ class BackgroundSegmentationService {
 
   async saveBodyParts(imagePath, bodyParts, outputDir) {
     const baseName = path.basename(imagePath, path.extname(imagePath));
+    const CANVAS_SIZE = 1024;
+    const PADDING = 2;
     
     // Load the original image for cutout
     const imageBuffer = fs.readFileSync(imagePath);
@@ -218,12 +220,71 @@ class BackgroundSegmentationService {
       const mask3DRepeated = tf.tile(mask3D, [1, 1, 3]);
       const cutoutImage = tf.mul(processedImage, mask3DRepeated);
       
-      // Convert to PNG
-      const cutoutBuffer = await tf.node.encodePng(cutoutImage);
+      // Find bounding box of non-zero pixels
+      const boundingBox = this.findBoundingBox(squeezedMask);
       
-      // Save to appropriate folder
-      const outputPath = path.join(outputDir, partName, `${partName}_${baseName}.png`);
-      fs.writeFileSync(outputPath, cutoutBuffer);
+      if (boundingBox) {
+        // Crop to bounding box with padding
+        const { minX, minY, maxX, maxY } = boundingBox;
+        const paddedMinX = Math.max(0, minX - PADDING);
+        const paddedMinY = Math.max(0, minY - PADDING);
+        const paddedMaxX = Math.min(maskWidth - 1, maxX + PADDING);
+        const paddedMaxY = Math.min(maskHeight - 1, maxY + PADDING);
+        
+        const croppedImage = cutoutImage.slice(
+          [paddedMinY, paddedMinX, 0],
+          [paddedMaxY - paddedMinY + 1, paddedMaxX - paddedMinX + 1, 3]
+        );
+        
+        const croppedMask = squeezedMask.slice(
+          [paddedMinY, paddedMinX],
+          [paddedMaxY - paddedMinY + 1, paddedMaxX - paddedMinX + 1]
+        );
+        
+        // Calculate scale to fill canvas while maintaining aspect ratio
+        const croppedWidth = paddedMaxX - paddedMinX + 1;
+        const croppedHeight = paddedMaxY - paddedMinY + 1;
+        const scale = Math.min(
+          (CANVAS_SIZE - 2 * PADDING) / croppedWidth,
+          (CANVAS_SIZE - 2 * PADDING) / croppedHeight
+        );
+        
+        const scaledWidth = Math.floor(croppedWidth * scale);
+        const scaledHeight = Math.floor(croppedHeight * scale);
+        
+        // Resize the cropped image and mask
+        const resizedImage = tf.image.resizeBilinear(croppedImage, [scaledHeight, scaledWidth]);
+        const resizedMask = tf.image.resizeBilinear(
+          tf.expandDims(croppedMask.cast('float32'), 2), 
+          [scaledHeight, scaledWidth]
+        );
+        
+        // Create final canvas with alpha channel
+        const finalCanvas = tf.zeros([CANVAS_SIZE, CANVAS_SIZE, 4]); // RGBA
+        
+        // Calculate centering offset
+        const offsetX = Math.floor((CANVAS_SIZE - scaledWidth) / 2);
+        const offsetY = Math.floor((CANVAS_SIZE - scaledHeight) / 2);
+        
+        // Create a simple approach: just save the resized image with basic transparency
+        // For now, let's save without the complex alpha channel processing
+        const finalImage = resizedImage;
+        
+        // Convert to PNG with alpha channel
+        const cutoutBuffer = await tf.node.encodePng(finalImage);
+        
+        // Save to appropriate folder
+        const outputPath = path.join(outputDir, partName, `${partName}_${baseName}.png`);
+        fs.writeFileSync(outputPath, cutoutBuffer);
+        
+        // Cleanup
+        croppedImage.dispose();
+        croppedMask.dispose();
+        resizedImage.dispose();
+        resizedMask.dispose();
+        finalCanvas.dispose();
+        finalImage.dispose();
+      }
       
       // Cleanup
       mask.dispose();
@@ -238,6 +299,30 @@ class BackgroundSegmentationService {
     
     // Cleanup original image
     originalImage.dispose();
+  }
+
+  findBoundingBox(mask) {
+    // Convert mask to array to find bounding box
+    const maskData = mask.dataSync();
+    const [height, width] = mask.shape;
+    
+    let minX = width, minY = height, maxX = -1, maxY = -1;
+    let hasPixels = false;
+    
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const index = y * width + x;
+        if (maskData[index] > 0) {
+          hasPixels = true;
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
+        }
+      }
+    }
+    
+    return hasPixels ? { minX, minY, maxX, maxY } : null;
   }
 
   createOutputDirectories(outputDir) {

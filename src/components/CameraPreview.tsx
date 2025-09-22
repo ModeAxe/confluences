@@ -30,9 +30,9 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({ onCapture }) => {
       console.log('Available cameras:', videoDevices);
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 720 },
-          height: { ideal: 1280 },
-            deviceId: { exact: videoDevices[0].deviceId }
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          deviceId: { exact: videoDevices[0].deviceId }
         }
       });
 
@@ -64,15 +64,16 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({ onCapture }) => {
 
     if (!ctx) return;
 
-    // Set canvas size to match video
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    // Set canvas size to match video (rotated)
+    canvas.width = video.videoHeight; // Swap width and height for rotation
+    canvas.height = video.videoWidth;
 
-    // Draw the current video frame to canvas
-    canvas.style.transform = 'scaleX(-1)'; // Mirror the canvas like the video
-
-    // Draw the current video frame to canvas
-    ctx.drawImage(video, 0, 0);
+    // Rotate and draw the video frame to canvas
+    ctx.save();
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate(-Math.PI / 2); // -90 degrees counter-clockwise
+    ctx.drawImage(video, -video.videoWidth / 2, -video.videoHeight / 2);
+    ctx.restore();
 
     // Get image data for processing
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -208,6 +209,16 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({ onCapture }) => {
       )}
       
       <div className="camera-container">
+        <div className="instruction-text">
+          <p>MOVE CLOSER TO START</p>
+          <p>MOVE FUTHER TO POSE</p>
+        </div>
+
+        <div className="instruction-text-2">
+          <p>MOVE CLOSER TO START</p>
+          <p>MOVE FUTHER TO POSE</p>
+        </div>
+        
         <video
         ref={videoRef}
         autoPlay
@@ -221,7 +232,8 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({ onCapture }) => {
               videoWidth: videoRef.current.videoWidth,
               videoHeight: videoRef.current.videoHeight,
               clientWidth: videoRef.current.clientWidth,
-              clientHeight: videoRef.current.clientHeight
+              clientHeight: videoRef.current.clientHeight,
+              aspectRatio: videoRef.current.videoWidth / videoRef.current.videoHeight
             });
           }
         }}

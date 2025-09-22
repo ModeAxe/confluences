@@ -96,11 +96,16 @@ export async function detectPerson(video: HTMLVideoElement): Promise<boolean | n
       clientHeight: video.clientHeight
     });
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    // Use rotated dimensions to match the video preview
+    canvas.width = video.videoHeight; // 720
+    canvas.height = video.videoWidth;  // 1280
     
-    // Draw the current video frame
-    ctx.drawImage(video, 0, 0);
+    // Rotate and draw the video frame to match the preview
+    ctx.save();
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate(-Math.PI / 2); // -90 degrees counter-clockwise
+    ctx.drawImage(video, -video.videoWidth / 2, -video.videoHeight / 2);
+    ctx.restore();
     
     // Run segmentation on the frame
     const segmentation = await model.segmentPerson(canvas, {
