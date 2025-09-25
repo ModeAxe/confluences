@@ -26,13 +26,19 @@ async function loadModel(): Promise<bodyPix.BodyPix | null> {
       console.log('TensorFlow.js version:', tf.version);
       console.log('BodyPix available:', !!bodyPix);
       
+      // Try local model first, fallback to online
+      const localModelUrl = './models/detection/model.json';
+      
+      let modelConfig = {
+        architecture: 'MobileNetV1' as const,
+        outputStride: 16 as const,
+        multiplier: 0.75 as const,
+        quantBytes: 2 as const,
+        modelUrl: localModelUrl
+      };
+      
       // Load the model with appropriate configuration and timeout
-      const modelPromise = bodyPix.load({
-        architecture: 'MobileNetV1',
-        outputStride: 16,
-        multiplier: 0.75,
-        quantBytes: 2
-      });
+      const modelPromise = bodyPix.load(modelConfig);
       
       // Add timeout to prevent hanging
       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -140,7 +146,7 @@ export async function detectPerson(video: HTMLVideoElement): Promise<boolean | n
         
         // For now, just return true if we see any reasonable amount of person
         // We can make this more sophisticated once basic detection works
-        if (personRatio > 0.05) { // 5% = probably a full body
+        if (personRatio > 0.02) { // 5% = probably a full body
           console.log(`✅ Likely full body: ${(personRatio * 100).toFixed(1)}% > 5%`);
           return true;
         } else {

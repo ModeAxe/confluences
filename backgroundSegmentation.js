@@ -11,17 +11,33 @@ class BackgroundSegmentationService {
     this.watcher = null;
     this.processedFiles = new Set();
     this.processingQueue = [];
+    this.OUTPUT_CANVAS_SIZE = 1024; // Configurable canvas size for all body parts
   }
 
   async initialize() {
     console.log('🤖 Loading BodyPix model for background processing...');
     try {
-      this.model = await bodyPix.load({
-        architecture: 'MobileNetV1',
-        outputStride: 16,
-        multiplier: 0.75,
-        quantBytes: 2
-      });
+      // Try local model first, fallback to online
+      const localModelPath = path.join(__dirname, 'models', 'segmentation', 'model.json');
+      
+      if (fs.existsSync(localModelPath)) {
+        console.log('📁 Using local segmentation model');
+        this.model = await bodyPix.load({
+          architecture: 'MobileNetV1',
+          outputStride: 16,
+          multiplier: 0.75,
+          quantBytes: 2,
+          modelUrl: `file://${localModelPath}`
+        });
+      } else {
+        console.log('🌐 Using online segmentation model');
+        this.model = await bodyPix.load({
+          architecture: 'MobileNetV1',
+          outputStride: 16,
+          multiplier: 0.75,
+          quantBytes: 2
+        });
+      }
       console.log('✅ Background segmentation service ready');
     } catch (error) {
       console.error('❌ Failed to load BodyPix model:', error);
@@ -186,7 +202,7 @@ class BackgroundSegmentationService {
 
   async saveBodyParts(imagePath, bodyParts, outputDir) {
     const baseName = path.basename(imagePath, path.extname(imagePath));
-    const CANVAS_SIZE = 1024;
+    const CANVAS_SIZE = this.OUTPUT_CANVAS_SIZE;
     const PADDING = 2;
     
     // Load the original image for cutout
@@ -212,8 +228,8 @@ class BackgroundSegmentationService {
       }
       
       // Flip image vertically and horizontally
-      processedImage = tf.reverse(processedImage, [0]);
-      processedImage = tf.reverse(processedImage, [1]);
+      // processedImage = tf.reverse(processedImage, [0]);
+      // processedImage = tf.reverse(processedImage, [1]);
       
       // Create cutout by applying mask to original image
       const mask3D = tf.expandDims(squeezedMask, 2);
@@ -259,16 +275,16 @@ class BackgroundSegmentationService {
           [scaledHeight, scaledWidth]
         );
         
-        // Create final canvas with alpha channel
-        const finalCanvas = tf.zeros([CANVAS_SIZE, CANVAS_SIZE, 4]); // RGBA
-        
         // Calculate centering offset
         const offsetX = Math.floor((CANVAS_SIZE - scaledWidth) / 2);
         const offsetY = Math.floor((CANVAS_SIZE - scaledHeight) / 2);
         
-        // Create a simple approach: just save the resized image with basic transparency
-        // For now, let's save without the complex alpha channel processing
-        const finalImage = resizedImage;
+        // Just pad the resized image to center it on the canvas - NO ALPHA CHANNEL
+        const finalImage = tf.pad(resizedImage, [
+          [offsetY, CANVAS_SIZE - offsetY - scaledHeight],
+          [offsetX, CANVAS_SIZE - offsetX - scaledWidth],
+          [0, 0]
+        ]);
         
         // Convert to PNG with alpha channel
         const cutoutBuffer = await tf.node.encodePng(finalImage);
@@ -282,7 +298,6 @@ class BackgroundSegmentationService {
         croppedMask.dispose();
         resizedImage.dispose();
         resizedMask.dispose();
-        finalCanvas.dispose();
         finalImage.dispose();
       }
       
@@ -324,6 +339,7 @@ class BackgroundSegmentationService {
     
     return hasPixels ? { minX, minY, maxX, maxY } : null;
   }
+
 
   createOutputDirectories(outputDir) {
     const bodyParts = ['head', 'left_arm', 'right_arm', 'torso', 'left_leg', 'right_leg'];

@@ -28,13 +28,50 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({ onCapture }) => {
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = devices.filter(device => device.kind === 'videoinput');
       console.log('Available cameras:', videoDevices);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          deviceId: { exact: videoDevices[0].deviceId }
+      
+      // Find camera by label instead of hardcoded device ID
+      const targetCameraLabel = "Logitech Webcam C930e";
+      const targetCamera = videoDevices.find(device => 
+        device.label && device.label.includes(targetCameraLabel)
+      );
+      
+      if (targetCamera) {
+        console.log('✅ Target camera found:', targetCamera.label, targetCamera.deviceId);
+      } else {
+        console.log('❌ Target camera not found. Available devices:');
+        videoDevices.forEach((device, index) => {
+          console.log(`  ${index}: ${device.deviceId} - ${device.label || 'Unknown'}`);
+        });
+      }
+      
+      // Try with your specific camera first (by label)
+      let stream;
+      try {
+        if (targetCamera) {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              deviceId: { exact: targetCamera.deviceId }
+            }
+          });
+          console.log('✅ Target camera access granted');
+        } else {
+          throw new Error('Target camera not found');
         }
-      });
+      } catch (error) {
+        console.log('⚠️ Target camera failed, trying fallback...');
+        console.error('Target camera error:', error);
+        
+        // Fallback to any available camera
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        });
+        console.log('✅ Fallback camera access granted');
+      }
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -145,7 +182,8 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({ onCapture }) => {
 
   // Separate countdown effect
   useEffect(() => {
-    if (!personDetected || isProcessing || showThankYouMessage) {
+    // !personDetected this is a note from elijah --maybe put this back in the if statement if needed
+    if ( isProcessing || showThankYouMessage) {
       // Clear countdown if no person, processing, or showing thank you message
       if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current);
@@ -245,18 +283,18 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({ onCapture }) => {
         <canvas ref={canvasRef} style={{ display: 'none' }} />
       
       <div className="status-indicator">
-        <div className={`person-status ${personDetected ? 'person-detected' : 'no-person'}`}>
+        {/* <div className={`person-status ${personDetected ? 'person-detected' : 'no-person'}`}>
           {personDetected 
             ? `Full Body Detected (${detectionTime}/5s)` 
             : 'No Full Body Detected'
           }
-        </div>
-        <div className="detection-debug">
+        </div> */}
+        {/* <div className="detection-debug">
           Detection: {personDetected ? '✅ Full Body' : '❌ Partial/None'}
         </div>
         <div className="model-status">
           {modelStatus}
-        </div>
+        </div> */}
         {personDetected && detectionTime > 0 && detectionTime < 5 && (
           <div className="countdown-message">
             <div className="countdown-text">
