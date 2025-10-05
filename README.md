@@ -1,12 +1,14 @@
-# Confluences - Smart Photo Capture Art Installation
+# Confluences (I) photo capture and segmentation
+An Electron + React desktop application that automatically captures photos when a person is detected using TensorFlow.js BodyPix, then saves the full photos to disk. The program also automatically runs segmentation on new captures
 
-An Electron + React desktop application that automatically captures photos when a person is detected using TensorFlow.js BodyPix, then saves the full photos to disk.
+[Confluences project site](https://elijahzulu.com/#/confluences)
 
 ## Features
 
 - **Live Webcam Preview**: Real-time camera feed with mirrored display
 - **Automatic Person Detection**: Uses TensorFlow.js BodyPix to detect when a person is in frame
 - **Auto-Capture**: Automatically captures photos after 3 seconds of person detection
+- **Auto-Segmentation**: Watches for new captures and automatically runs segmentation model on them
 - **Simple Photo Saving**: Saves full photos as PNG files with timestamps
 - **Organized File Structure**: Automatically creates output folder and saves photos
 - **Timestamp-based Naming**: Unique filenames based on capture time
@@ -146,5 +148,3 @@ MIT License - see LICENSE file for details
 This is an art installation project. For contributions or modifications, please contact the project maintainers.
 
 ---
-
-**Confluences** - Exploring the intersection of technology and human form through digital art.
