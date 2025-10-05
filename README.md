@@ -1,4 +1,4 @@
-# Confluences (I) photo capture and segmentation
+# Confluences photo capture and segmentation
 An Electron + React desktop application that automatically captures photos when a person is detected using TensorFlow.js BodyPix, then saves the full photos to disk. The program also automatically runs segmentation on new captures
 
 [Confluences project site](https://elijahzulu.com/#/confluences)
